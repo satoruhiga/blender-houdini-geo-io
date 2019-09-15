@@ -21,7 +21,11 @@ REM cmake .. -G "Visual Studio 15 2017 Win64" -DHFS="C:/Program Files/Side Effec
 REM cmake --build . --config release
 REM del CMakeCache.txt
 
-cmake .. -G "Visual Studio 15 2017 Win64" -DHFS="C:/Program Files/Side Effects Software/Houdini 17.5.258"
+REM cmake .. -G "Visual Studio 15 2017 Win64" -DHFS="C:/Program Files/Side Effects Software/Houdini 17.5.258"
+REM cmake --build . --config release
+REM del CMakeCache.txt
+
+cmake .. -G "Visual Studio 15 2017 Win64" -DHFS="C:/Program Files/Side Effects Software/Houdini 17.5.360"
 cmake --build . --config release
 del CMakeCache.txt
 
