@@ -48,7 +48,10 @@ class SCENE_OT_LoadGeo(bpy.types.Operator):
 	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
-		path = bpy.context.object.houdini_io.filepath
+		ob = bpy.context.object
+
+		o = bpy.context.object.houdini_io
+		path = o.filepath.format(name=ob.name)
 		
 		if not path:
 			return {'CANCELLED'}
@@ -56,7 +59,6 @@ class SCENE_OT_LoadGeo(bpy.types.Operator):
 		bpy.ops.object.mode_set(mode="OBJECT")
 
 		path = bpy.path.abspath(path)
-		ob = bpy.context.object
 		opts = {}
 
 		new_data = importer.import_(path, ob, opts)
@@ -87,7 +89,10 @@ class SCENE_OT_SaveGeo(bpy.types.Operator):
 	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
-		path = bpy.context.object.houdini_io.filepath
+		ob = bpy.context.object
+
+		o = bpy.context.object.houdini_io
+		path = o.filepath.format(name=ob.name)
 		
 		if not path:
 			return {'CANCELLED'}
@@ -95,7 +100,7 @@ class SCENE_OT_SaveGeo(bpy.types.Operator):
 		bpy.ops.object.mode_set(mode="OBJECT")
 
 		path = bpy.path.abspath(path)
-		ob = bpy.context.object
+		
 
 		opts = {}
 		res = exporter.export(path, ob, opts)
@@ -151,8 +156,7 @@ frame_update_targets = []
 
 def update_geometry(o):
 	try:
-		s = o.filepath_template.format(o.frame)
-		o.filepath = s
+		o.filepath = o.filepath_template.format(name=o.name, frame=o.frame)
 	except:
 		print('invalid filepath format:', o)
 	
