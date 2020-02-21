@@ -2,7 +2,10 @@ from .find_houdini import find_houdini, append_path
 
 HFS = find_houdini()
 
-if '17.5.360' in HFS:
+if '18.0.348' in HFS:
+	append_path(HFS['18.0.348'])
+	from . import core_18_0_348 as core
+elif '17.5.360' in HFS:
 	append_path(HFS['17.5.360'])
 	from . import core_17_5_360 as core
 elif '17.5.258' in HFS:
