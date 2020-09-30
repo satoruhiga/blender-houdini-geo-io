@@ -2,27 +2,9 @@ from .find_houdini import find_houdini, append_path
 
 HFS = find_houdini()
 
-if '18.0.348' in HFS:
-	append_path(HFS['18.0.348'])
-	from . import core_18_0_348 as core
-elif '17.5.360' in HFS:
-	append_path(HFS['17.5.360'])
-	from . import core_17_5_360 as core
-elif '17.5.258' in HFS:
-	append_path(HFS['17.5.258'])
-	from . import core_17_5_258 as core
-elif '17.5.173' in HFS:
-	append_path(HFS['17.5.173'])
-	from . import core_17_5_173 as core
-elif '17.0.416' in HFS:
-	append_path(HFS['17.0.416'])
-	from . import core_17_0_416 as core
-elif '17.0.352' in HFS:
-	append_path(HFS['17.0.352'])
-	from . import core_17_0_352 as core
-elif '16.5.634' in HFS:
-	append_path(HFS['16.5.634'])
-	from . import core_16_5_634 as core
+if '18.0.566' in HFS:
+	append_path(HFS['18.0.566'])
+	from . import core_18_0_566 as core
 else:
 	raise 'No valid houdini version found: %s' % HFS.keys()
 
