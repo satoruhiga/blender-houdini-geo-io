@@ -21,6 +21,8 @@ def append_path(HFS):
 		os.environ['PATH'] = ';'.join((bin_dir, os.environ['PATH']))
 		print('HFS: %s' % HFS)
 
+		os.add_dll_directory(bin_dir)
+
 if __name__ == "__main__":
 	k = find_houdini()
 	print(k)
