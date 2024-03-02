@@ -53,9 +53,27 @@ def import_mesh(geo: hio.Geometry, name: str):
         # Skip P attribute
         if attr.typeInfo() == hio.TypeInfo.Point and attr.name() == "P":
             continue
+        
+        # Point normals
+        if attr.name() == "N" and attr.typeInfo() == hio.TypeInfo.Normal:
+            me.create_normals_split()
+
+            me.validate(clean_customdata=False)
+
+            me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
+
+            data = attr.attribValue()
+            data = data.flatten()
+            data *= -1
+
+            data = tuple(zip(*(iter(data),) * 3))
+            me.normals_split_custom_set_from_vertices(data)
+
+            me.use_auto_smooth = True
+
+            continue
 
         data = attr.attribValue()
-
         b_type = None
 
         if attr.typeInfo() == hio.TypeInfo.Value:
@@ -65,11 +83,6 @@ def import_mesh(geo: hio.Geometry, name: str):
         elif attr.typeInfo() == hio.TypeInfo.Vector:
             b_type = "FLOAT_VECTOR"
             key = "vector"
-
-        elif attr.typeInfo() == hio.TypeInfo.Normal:
-            b_type = "FLOAT_VECTOR"
-            key = "vector"
-            # data *= -1
 
         elif attr.typeInfo() == hio.TypeInfo.Color:
             b_type = "FLOAT_COLOR"
@@ -95,88 +108,71 @@ def import_mesh(geo: hio.Geometry, name: str):
         
     # Vertex attributes
     for attr in geo.vertexAttribs():
-        data = attr.attribValue()
 
-        b_type = None
+        # Vertex normals
+        if attr.name() == "N" and attr.typeInfo() == hio.TypeInfo.Normal:
+            me.create_normals_split()
 
-        if attr.name() == "N": # Skip Vertex normals
-            pass
+            me.validate(clean_customdata=False)
 
-        else:
-            if attr.typeInfo() == hio.TypeInfo.Value:
-                b_type = "FLOAT"
-                key = 'value'
+            me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
 
-            elif attr.typeInfo() == hio.TypeInfo.Vector:
-                b_type = "FLOAT_VECTOR"
-                key = "vector"
+            data = attr.attribValue()
+            data = data.flatten()
+            data *= -1
 
-            elif attr.typeInfo() == hio.TypeInfo.Normal:
-                b_type = "FLOAT_VECTOR"
-                key = "vector"
-                data *= -1
+            data = tuple(zip(*(iter(data),) * 3))
+            me.normals_split_custom_set(data)
 
-            elif attr.typeInfo() == hio.TypeInfo.Color:
-                b_type = "FLOAT_COLOR"
-                key = "color"
-                data = np.column_stack(data, np.ones(data.shape[0]))
+            me.use_auto_smooth = True
 
-            elif attr.typeInfo() == hio.TypeInfo.TextureCoord:
-                b_type = "FLOAT2"
-                key = "vector"
+            continue
 
-                # vec3 to vec2
-                data = data[:, :2]
-            else:
-                print("Unsupported attribute type: ", attr.typeInfo())
-                continue
-
+        if attr.name() == "uv" and attr.typeInfo() == hio.TypeInfo.TextureCoord:
+            data = attr.attribValue()
+            data = np.take(data, vertices_lut, axis=0)
+            data = data[:, :2]
             data = data.flatten()
 
-            ma = me.attributes.new(name=attr.name(), type=b_type, domain="CORNER")
-            ma.data.foreach_set(key, data)
+            uv_layer = me.uv_layers.new(name=attr.name())
+            uv_layer.data.foreach_set("uv", data)
+
+            continue
+
+        data = attr.attribValue()
+        b_type = None
+
+        if attr.typeInfo() == hio.TypeInfo.Value:
+            b_type = "FLOAT"
+            key = 'value'
+
+        elif attr.typeInfo() == hio.TypeInfo.Vector:
+            b_type = "FLOAT_VECTOR"
+            key = "vector"
+
+        elif attr.typeInfo() == hio.TypeInfo.Color:
+            b_type = "FLOAT_COLOR"
+            key = "color"
+            data = np.column_stack((data, np.ones(data.shape[0])))
+
+        elif attr.typeInfo() == hio.TypeInfo.TextureCoord:
+            b_type = "FLOAT2"
+            key = "vector"
+
+            # vec3 to vec2
+            data = data[:, :2]
+        else:
+            print("Unsupported attribute type: ", attr.typeInfo())
+            continue
+
+        data = data.flatten()
+
+        ma = me.attributes.new(name=attr.name(), type=b_type, domain="CORNER")
+        ma.data.foreach_set(key, data)
 
     ###
     
-    # for attr in geo.vertexAttribs():
-    #     if attr.typeInfo() == hio.TypeInfo.TextureCoord:
-    #         data = attr.attribValue()
-    #         data = np.take(data, vertices_lut, axis=0)
-    #         data = data[:, :2]
-    #         data = data.flatten()
-
-    #         uv_layer = me.uv_layers.new(name=attr.name())
-    #         uv_layer.data.foreach_set("uv", data)
-
-    #     elif attr.typeInfo() == hio.TypeInfo.Color:
-    #         data = attr.attribValue()
-    #         data = np.take(data, vertices_lut, axis=0)
-    #         data = np.column_stack((data, np.ones(data.shape[0])))
-    #         data = data.flatten()
-
-    #         color_layer = me.vertex_colors.new(name=attr.name())
-    #         color_layer.data.foreach_set("color", data)
-
-    ###
-
-    vN = geo.findVertexAttrib("N")
-    if vN:
-        me.create_normals_split()
-
-        me.validate(clean_customdata=False)
-
-        me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
-
-        data = vN.attribValue()
-        data = data.flatten()
-        data *= -1
-
-        data = tuple(zip(*(iter(data),) * 3))
-        me.normals_split_custom_set(data)
-
-        me.use_auto_smooth = True
-        me.flip_normals()
-
+    me.flip_normals()
     me.update()
 
     return me
