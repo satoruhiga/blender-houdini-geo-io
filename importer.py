@@ -11,190 +11,198 @@ from mathutils import Matrix
 from bpy_extras.io_utils import axis_conversion
 from bpy_extras.io_utils import unpack_list
 
-def import_mesh(geo:hio.Geometry, name:str):
-	me = bpy.data.meshes.new(name)
 
-	pdata = geo._dataByType([hio.PrimitiveTypes.Poly])
-	
-	me.vertices.add(geo.getNumPoints())
-	points = geo.points().flatten()
-	me.vertices.foreach_set("co", points)
-	
-	# prims = pdata['prims']
+def import_mesh(geo: hio.Geometry, name: str):
+    me = bpy.data.meshes.new(name)
 
-	vertex_indices = pdata['vertices']
-	vertices_lut = pdata['vertices_lut']
+    pdata = geo._dataByType([hio.PrimitiveTypes.Poly])
 
-	loop_start = pdata['vertex_start_index']
-	loop_total = pdata['vertex_count']
+    me.vertices.add(geo.getNumPoints())
+    points = geo.points().flatten()
+    me.vertices.foreach_set("co", points)
 
-	###
+    # prims = pdata['prims']
 
-	me.loops.add(len(vertex_indices))
-	me.loops.foreach_set("vertex_index", vertex_indices)
+    vertex_indices = pdata["vertices"]
+    vertices_lut = pdata["vertices_lut"]
 
-	me.polygons.add(len(loop_start))
-	me.polygons.foreach_set("loop_start", loop_start)
-	me.polygons.foreach_set("loop_total", loop_total)
+    loop_start = pdata["vertex_start_index"]
+    loop_total = pdata["vertex_count"]
 
-	###
+    ###
 
-	N = geo.findVertexAttrib("N")
+    me.loops.add(len(vertex_indices))
+    me.loops.foreach_set("vertex_index", vertex_indices)
 
-	if N:
-		data = N.attribValue()
+    me.polygons.add(len(loop_start))
+    me.polygons.foreach_set("loop_start", loop_start)
+    me.polygons.foreach_set("loop_total", loop_total)
 
-		me.create_normals_split()
+    ###
 
-		data = np.take(data, vertices_lut, axis=0)
-		data = data.flatten()
-		data *= -1
-		me.loops.foreach_set("normal", data)
+    N = geo.findVertexAttrib("N")
 
-	material_index = geo.findPrimAttrib("material_index")
-	if material_index:
-		data = material_index.attribValue()
-		data = data.flatten()
-		me.polygons.foreach_set('material_index', data)
+    if N:
+        data = N.attribValue()
 
-	###
+        me.create_normals_split()
 
-	for attr in geo.vertexAttribs():
-		if attr.typeInfo() == hio.TypeInfo.TextureCoord:
-			uv_layer = me.uv_layers.new(name=attr.name())
-			
-			data = attr.attribValue()
-			data = np.take(data, vertices_lut, axis=0)
-			data = data[:,:2]
-			data = data.flatten()
+        data = np.take(data, vertices_lut, axis=0)
+        data = data.flatten()
+        data *= -1
+        me.loops.foreach_set("normal", data)
 
-			uv_layer.data.foreach_set("uv", data)
+    material_index = geo.findPrimAttrib("material_index")
+    if material_index:
+        data = material_index.attribValue()
+        data = data.flatten()
+        me.polygons.foreach_set("material_index", data)
 
-		elif attr.typeInfo() == hio.TypeInfo.Color:
-			color_layer = me.vertex_colors.new(name=attr.name())
-			data = attr.attribValue()
-			data = np.take(data, vertices_lut, axis=0)
-			data = np.column_stack( (data, np.ones(data.shape[0])) )
-			data = data.flatten()
+    ###
 
-			color_layer.data.foreach_set("color", data)
+    for attr in geo.vertexAttribs():
+        if attr.typeInfo() == hio.TypeInfo.TextureCoord:
+            uv_layer = me.uv_layers.new(name=attr.name())
 
-	###
+            data = attr.attribValue()
+            data = np.take(data, vertices_lut, axis=0)
+            data = data[:, :2]
+            data = data.flatten()
 
-	if N:
-		me.validate(clean_customdata=False)
+            uv_layer.data.foreach_set("uv", data)
 
-		clnors = np.empty(len(me.loops) * 3, dtype=np.float32)
-		
-		me.loops.foreach_get("normal", clnors)
-		me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
-		
-		clnors = np.reshape(clnors, (int(len(clnors)/3), 3))
-		me.normals_split_custom_set(clnors)
+        elif attr.typeInfo() == hio.TypeInfo.Color:
+            color_layer = me.vertex_colors.new(name=attr.name())
+            data = attr.attribValue()
+            data = np.take(data, vertices_lut, axis=0)
+            data = np.column_stack((data, np.ones(data.shape[0])))
+            data = data.flatten()
 
-		me.use_auto_smooth = True
+            color_layer.data.foreach_set("color", data)
 
-	me.flip_normals()
-	me.update()
+    ###
 
-	return me
+    if N:
+        me.validate(clean_customdata=False)
 
-def import_curve(geo:hio.Geometry, name:str):
-	cu = bpy.data.curves.new(name, type="CURVE")
-	cu.dimensions = '3D'
-	cu.fill_mode = 'FULL'
+        clnors = np.empty(len(me.loops) * 3, dtype=np.float32)
 
-	points = geo.getPoints()
+        me.loops.foreach_get("normal", clnors)
+        me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
 
-	target_type = [hio.PrimType.NURBS, hio.PrimType.Bezier]
-	pdata = geo.getPrimitivesByType(target_type)
+        clnors = np.reshape(clnors, (int(len(clnors) / 3), 3))
+        me.normals_split_custom_set(clnors)
 
-	vertex_indices = pdata['vertices']
-	prim_types = pdata['type']
-	vertex_count = pdata['vertex_count']
-	vertex_start_index = pdata['vertex_start_index']
-	closed = pdata['closed']
+        me.use_auto_smooth = True
 
-	for i, prim_type in enumerate(prim_types):
-		t = hio.PrimType(prim_type)
+    me.flip_normals()
+    me.update()
 
-		if t == hio.PrimType.NURBS:
-			sp = cu.splines.new('NURBS')
+    return me
 
-			N = vertex_count[i]
-			sp.points.add(N-1)
 
-			idxs = list(range(vertex_start_index[i], vertex_start_index[i] + N))
-			idxs = np.take(vertex_indices, idxs)
+def import_curve(geo: hio.Geometry, name: str):
+    cu = bpy.data.curves.new(name, type="CURVE")
+    cu.dimensions = "3D"
+    cu.fill_mode = "FULL"
 
-			pos = np.take(points, idxs, axis=0)
-			pos = np.column_stack((pos, np.ones((N, 1))))
-			pos = pos.flatten()
+    points = geo.getPoints()
 
-			sp.points.foreach_set("co", pos)
-			sp.use_cyclic_u = closed[i]
-			sp.use_endpoint_u = True
-			sp.order_u = 4
+    target_type = [hio.PrimType.NURBS, hio.PrimType.Bezier]
+    pdata = geo.getPrimitivesByType(target_type)
 
-		elif t == hio.PrimType.Bezier:
-			sp = cu.splines.new('BEZIER')
+    vertex_indices = pdata["vertices"]
+    prim_types = pdata["type"]
+    vertex_count = pdata["vertex_count"]
+    vertex_start_index = pdata["vertex_start_index"]
+    closed = pdata["closed"]
 
-			N = int((vertex_count[i] + 2) / 3)
-			sp.bezier_points.add(N-1)
+    for i, prim_type in enumerate(prim_types):
+        t = hio.PrimType(prim_type)
 
-			idxs = list(range(vertex_start_index[i], vertex_start_index[i] + vertex_count[i]))
-			idxs = np.take(vertex_indices, idxs)
+        if t == hio.PrimType.NURBS:
+            sp = cu.splines.new("NURBS")
 
-			pos = np.take(points, idxs, axis=0)
+            N = vertex_count[i]
+            sp.points.add(N - 1)
 
-			if closed[i]:
-				for n in range(N):
-					pt = sp.bezier_points[n]
-					pt.handle_left = pos[n * 3 - 1]
-					pt.co = pos[n * 3 ]
-					pt.handle_right = pos[n * 3 + 1]
-						
-			else:
-				for n in range(N):
-					pt = sp.bezier_points[n]
-					if n == 0:
-						pt.handle_left = pos[0]
-						pt.co = pos[0]
-						pt.handle_right = pos[1]
-					elif n == N - 1:
-						pt.handle_left = pos[n * 3 - 1]
-						pt.co = pos[n * 3]
-						pt.handle_right = pos[n * 3]
-					else:
-						pt.handle_left = pos[n * 3 - 1]
-						pt.co = pos[n * 3]
-						pt.handle_right = pos[n * 3 + 1]
+            idxs = list(range(vertex_start_index[i], vertex_start_index[i] + N))
+            idxs = np.take(vertex_indices, idxs)
 
-			sp.use_cyclic_u = closed[i]
-			sp.use_endpoint_u = True
-			sp.order_u = 4
+            pos = np.take(points, idxs, axis=0)
+            pos = np.column_stack((pos, np.ones((N, 1))))
+            pos = pos.flatten()
 
-	return cu
+            sp.points.foreach_set("co", pos)
+            sp.use_cyclic_u = closed[i]
+            sp.use_endpoint_u = True
+            sp.order_u = 4
 
-def import_(path:str, ob, opts):
-	data = None
+        elif t == hio.PrimType.Bezier:
+            sp = cu.splines.new("BEZIER")
 
-	temp_name = 'temp_' + os.path.basename(path)
+            N = int((vertex_count[i] + 2) / 3)
+            sp.bezier_points.add(N - 1)
 
-	geo = hio.Geometry()
-	if not geo.load(path):
-		return None
+            idxs = list(
+                range(vertex_start_index[i], vertex_start_index[i] + vertex_count[i])
+            )
+            idxs = np.take(vertex_indices, idxs)
 
-	if ob.type == 'MESH':
-		data = import_mesh(geo, temp_name)
-		for x in ob.data.materials:
-			data.materials.append(x)
+            pos = np.take(points, idxs, axis=0)
 
-	# elif ob.type == 'CURVE':
-	# 	data = import_curve(geo, temp_name)
+            if closed[i]:
+                for n in range(N):
+                    pt = sp.bezier_points[n]
+                    pt.handle_left = pos[n * 3 - 1]
+                    pt.co = pos[n * 3]
+                    pt.handle_right = pos[n * 3 + 1]
 
-	if hasattr(data, 'transform'):
-		global_matrix = (Matrix.Scale(1, 4) @ axis_conversion(from_forward="-Z", from_up="Y").to_4x4())
-		data.transform(global_matrix)
+            else:
+                for n in range(N):
+                    pt = sp.bezier_points[n]
+                    if n == 0:
+                        pt.handle_left = pos[0]
+                        pt.co = pos[0]
+                        pt.handle_right = pos[1]
+                    elif n == N - 1:
+                        pt.handle_left = pos[n * 3 - 1]
+                        pt.co = pos[n * 3]
+                        pt.handle_right = pos[n * 3]
+                    else:
+                        pt.handle_left = pos[n * 3 - 1]
+                        pt.co = pos[n * 3]
+                        pt.handle_right = pos[n * 3 + 1]
 
-	return data
+            sp.use_cyclic_u = closed[i]
+            sp.use_endpoint_u = True
+            sp.order_u = 4
+
+    return cu
+
+
+def import_(path: str, ob, opts):
+    data = None
+
+    temp_name = "temp_" + os.path.basename(path)
+
+    geo = hio.Geometry()
+    if not geo.load(path):
+        return None
+
+    if ob.type == "MESH":
+        data = import_mesh(geo, temp_name)
+        for x in ob.data.materials:
+            data.materials.append(x)
+
+    # elif ob.type == 'CURVE':
+    # 	data = import_curve(geo, temp_name)
+
+    if hasattr(data, "transform"):
+        global_matrix = (
+            Matrix.Scale(1, 4)
+            @ axis_conversion(from_forward="-Z", from_up="Y").to_4x4()
+        )
+        data.transform(global_matrix)
+
+    return data
