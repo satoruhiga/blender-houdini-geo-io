@@ -18,8 +18,7 @@ def import_mesh(geo: hio.Geometry, name: str):
     pdata = geo._dataByType([hio.PrimitiveTypes.Poly])
 
     me.vertices.add(geo.getNumPoints())
-    points = geo.points().flatten()
-    me.vertices.foreach_set("co", points)
+    me.vertices.foreach_set("co", geo.points().flatten())
 
     # prims = pdata['prims']
 
@@ -40,62 +39,144 @@ def import_mesh(geo: hio.Geometry, name: str):
 
     ###
 
-    N = geo.findVertexAttrib("N")
+    # material_index = geo.findPrimAttrib("material_index")
+    # if material_index:
+    #     data = material_index.attribValue()
+    #     data = data.flatten()
 
-    if N:
-        data = N.attribValue()
-
-        me.create_normals_split()
-
-        data = np.take(data, vertices_lut, axis=0)
-        data = data.flatten()
-        data *= -1
-        me.loops.foreach_set("normal", data)
-
-    material_index = geo.findPrimAttrib("material_index")
-    if material_index:
-        data = material_index.attribValue()
-        data = data.flatten()
-        me.polygons.foreach_set("material_index", data)
+    #     me.polygons.foreach_set("material_index", data)
 
     ###
 
-    for attr in geo.vertexAttribs():
-        if attr.typeInfo() == hio.TypeInfo.TextureCoord:
-            uv_layer = me.uv_layers.new(name=attr.name())
+    # Point attributes
+    for attr in geo.pointAttribs():
+        # Skip P attribute
+        if attr.typeInfo() == hio.TypeInfo.Point and attr.name() == "P":
+            continue
 
-            data = attr.attribValue()
-            data = np.take(data, vertices_lut, axis=0)
-            data = data[:, :2]
-            data = data.flatten()
+        data = attr.attribValue()
 
-            uv_layer.data.foreach_set("uv", data)
+        b_type = None
+
+        if attr.typeInfo() == hio.TypeInfo.Value:
+            b_type = "FLOAT"
+            key = 'value'
+
+        elif attr.typeInfo() == hio.TypeInfo.Vector:
+            b_type = "FLOAT_VECTOR"
+            key = "vector"
+
+        elif attr.typeInfo() == hio.TypeInfo.Normal:
+            b_type = "FLOAT_VECTOR"
+            key = "vector"
+            # data *= -1
 
         elif attr.typeInfo() == hio.TypeInfo.Color:
-            color_layer = me.vertex_colors.new(name=attr.name())
-            data = attr.attribValue()
-            data = np.take(data, vertices_lut, axis=0)
+            b_type = "FLOAT_COLOR"
+            key = "color"
             data = np.column_stack((data, np.ones(data.shape[0])))
+
+        elif attr.typeInfo() == hio.TypeInfo.TextureCoord:
+            b_type = "FLOAT2"
+            key = "vector"
+
+            # vec3 to vec2
+            data = data[:, :2]
+        else:
+            print("Unsupported attribute type: ", attr.typeInfo())
+            continue
+
+        data = data.flatten()
+
+        ma = me.attributes.new(name=attr.name(), type=b_type, domain="POINT")
+        ma.data.foreach_set(key, data)
+
+    ###
+        
+    # Vertex attributes
+    for attr in geo.vertexAttribs():
+        data = attr.attribValue()
+
+        b_type = None
+
+        if attr.name() == "N": # Skip Vertex normals
+            pass
+
+        else:
+            if attr.typeInfo() == hio.TypeInfo.Value:
+                b_type = "FLOAT"
+                key = 'value'
+
+            elif attr.typeInfo() == hio.TypeInfo.Vector:
+                b_type = "FLOAT_VECTOR"
+                key = "vector"
+
+            elif attr.typeInfo() == hio.TypeInfo.Normal:
+                b_type = "FLOAT_VECTOR"
+                key = "vector"
+                data *= -1
+
+            elif attr.typeInfo() == hio.TypeInfo.Color:
+                b_type = "FLOAT_COLOR"
+                key = "color"
+                data = np.column_stack(data, np.ones(data.shape[0]))
+
+            elif attr.typeInfo() == hio.TypeInfo.TextureCoord:
+                b_type = "FLOAT2"
+                key = "vector"
+
+                # vec3 to vec2
+                data = data[:, :2]
+            else:
+                print("Unsupported attribute type: ", attr.typeInfo())
+                continue
+
             data = data.flatten()
 
-            color_layer.data.foreach_set("color", data)
+            ma = me.attributes.new(name=attr.name(), type=b_type, domain="CORNER")
+            ma.data.foreach_set(key, data)
+
+    ###
+    
+    # for attr in geo.vertexAttribs():
+    #     if attr.typeInfo() == hio.TypeInfo.TextureCoord:
+    #         data = attr.attribValue()
+    #         data = np.take(data, vertices_lut, axis=0)
+    #         data = data[:, :2]
+    #         data = data.flatten()
+
+    #         uv_layer = me.uv_layers.new(name=attr.name())
+    #         uv_layer.data.foreach_set("uv", data)
+
+    #     elif attr.typeInfo() == hio.TypeInfo.Color:
+    #         data = attr.attribValue()
+    #         data = np.take(data, vertices_lut, axis=0)
+    #         data = np.column_stack((data, np.ones(data.shape[0])))
+    #         data = data.flatten()
+
+    #         color_layer = me.vertex_colors.new(name=attr.name())
+    #         color_layer.data.foreach_set("color", data)
 
     ###
 
-    if N:
+    vN = geo.findVertexAttrib("N")
+    if vN:
+        me.create_normals_split()
+
         me.validate(clean_customdata=False)
 
-        clnors = np.empty(len(me.loops) * 3, dtype=np.float32)
-
-        me.loops.foreach_get("normal", clnors)
         me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
 
-        clnors = np.reshape(clnors, (int(len(clnors) / 3), 3))
-        me.normals_split_custom_set(clnors)
+        data = vN.attribValue()
+        data = data.flatten()
+        data *= -1
+
+        data = tuple(zip(*(iter(data),) * 3))
+        me.normals_split_custom_set(data)
 
         me.use_auto_smooth = True
+        me.flip_normals()
 
-    me.flip_normals()
     me.update()
 
     return me
@@ -189,6 +270,8 @@ def import_(path: str, ob, opts):
     geo = hio.Geometry()
     if not geo.load(path):
         return None
+
+    # geo.reverse()
 
     if ob.type == "MESH":
         data = import_mesh(geo, temp_name)

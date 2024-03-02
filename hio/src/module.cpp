@@ -237,6 +237,7 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 	geometry
 		.def(py::init<>())
 		.def("clear", &Geometry::clear)
+        .def("reverse", &Geometry::reverse)
 		.def("getNumPoints", &Geometry::getNumPoints)
 		.def("getNumVertices", &Geometry::getNumVertices)
 		.def("getNumPrimitives", &Geometry::getNumPrimitives)
@@ -411,7 +412,8 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 			dict["vertices_lut"] = py::array_t<Index>(vertices_lut.size(), vertices_lut.data());
 			dict["vertex_start_index"] = py::array_t<Index>(vertex_start_index.size(), vertex_start_index.data());
 			dict["vertex_count"] = py::array_t<Size>(vertex_count.size(), vertex_count.data());
-						return dict;
+
+		    return dict;
 		})
 	;
 }

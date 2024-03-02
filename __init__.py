@@ -213,9 +213,7 @@ class SCENE_PT_HoudiniIO(Panel):
         layout.operator(SCENE_OT_LoadGeo.bl_idname, text="Load Geo")
         layout.operator(SCENE_OT_SaveGeo.bl_idname, text="Save Geo")
 
-
 ###
-
 
 class ObjectHoudiniIO(PropertyGroup):
     active: BoolProperty(name="Active", default=False)

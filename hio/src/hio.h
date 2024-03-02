@@ -641,6 +641,7 @@ namespace hio {
 		Geometry();
 
 		void clear();
+	    void reverse();
 
 		Size getNumPoints() const;
 		Size getNumVertices() const;
