@@ -54,6 +54,7 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 		.value("Poly", PrimitiveTypes::Poly)
 		.value("NURBSCurve", PrimitiveTypes::NURBSCurve)
 		.value("BezierCurve", PrimitiveTypes::BezierCurve)
+        .value("Mesh", PrimitiveTypes::Mesh)
 		;
 
 	py::class_<Vector2> vector2(m, "Vector2");
@@ -329,64 +330,26 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 			return py::cast(attr);
 		}, py::return_value_policy::copy)
 
+        .def("filterPrimitiveByType", &Geometry::filterPrimitiveByType)
+    
 		.def("load", &Geometry::load)
 		.def("save", &Geometry::save)
 
 		.def("_dataByType", [](Geometry& self, std::vector<PrimitiveTypes> types) {
-			{
-				GA_PrimitiveGroup *grp = self.geo().newInternalPrimitiveGroup();
-
-				static GA_PrimitiveTypeId_tag _tag;
-
-				for (auto prim : self.prims())
-				{
-					bool found = false;
-
-					PrimitiveTypes prim_type = Enum2Enum(prim.prim()->getTypeDef().getId().get(), _tag);
-
-					for (auto t : types)
-					{
-						if (t == prim_type)
-						{
-							found = true;
-							break;
-						}
-					}
-
-					if (!found)
-					{
-						grp->addIndex(prim.number());
-					}
-				}
-
-				self.geo().deletePrimitives(*grp, true);
-				self.geo().destroyPrimitiveGroup(grp);
-			}
-
+            self.filterPrimitiveByType(types);
+		    
 			auto dict = py::dict();
 
-			std::vector<Primitive> prims;
-			prims.reserve(self.getNumPrimitives());
-
-			for (auto prim : self.prims())
-			{
-				prims.push_back(prim);
-			}
-
+			const std::vector<Primitive>& prims = self.prims();
 			py::list _prims;
-
 			std::vector<Index> vertices;
-			std::vector<Index> vertices_lut;
-
 			std::vector<Index> vertex_start_index;
 			std::vector<Size> vertex_count;
 
 			vertices.reserve(self.getNumVertices());
-			vertices_lut.reserve(self.getNumVertices());
-
 			vertex_start_index.reserve(self.getNumPrimitives());
 			vertex_count.reserve(self.getNumPrimitives());
-
+		    
 			for (auto prim : prims)
 			{
 				auto vtxs = prim.vertices();
@@ -394,22 +357,14 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 				vertex_start_index.emplace_back(prim.vertexStartIndex());
 				vertex_count.emplace_back(prim.vertexCount());
 
-				auto s = prim.vertexStartIndex();
-				for (int i = 0; i < prim.vertexCount(); i++)
-				{
-					vertices_lut.emplace_back(s + i);
-				}
-
 				if (prim.prim()->getTypeDef().getId() == Polygon::prim_typeid)
 				{
-					_prims.append(Polygon(prim));
+				    _prims.append(Polygon(prim));
 				}
 			}
 
 			dict["prims"] = _prims;
-
 			dict["vertices"] = py::array_t<Index>(vertices.size(), vertices.data());
-			dict["vertices_lut"] = py::array_t<Index>(vertices_lut.size(), vertices_lut.data());
 			dict["vertex_start_index"] = py::array_t<Index>(vertex_start_index.size(), vertex_start_index.data());
 			dict["vertex_count"] = py::array_t<Size>(vertex_count.size(), vertex_count.data());
 

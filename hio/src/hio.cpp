@@ -96,7 +96,7 @@ namespace hio {
 			arr.emplace_back((GEO_Primitive*)prim);
 		}
 
-		return arr;
+		return std::move(arr);
 	}
 
 	hio::Polygon Geometry::createPolygon(Size num_vertices, bool is_closed)
@@ -194,7 +194,7 @@ namespace hio {
 
 	std::vector<Attrib> Geometry::pointAttribs() const
 	{
-		auto attrs = _geo.pointAttribs();
+		const auto& attrs = _geo.pointAttribs();
 		
 		std::vector<Attrib> arr;
 
@@ -210,7 +210,7 @@ namespace hio {
 
 	std::vector<Attrib> Geometry::primAttribs() const
 	{
-		auto attrs = _geo.primitiveAttribs();
+		const auto& attrs = _geo.primitiveAttribs();
 
 		std::vector<Attrib> arr;
 		GA_AttributeDict::iterator it = attrs.begin(GA_SCOPE_PUBLIC);
@@ -225,7 +225,7 @@ namespace hio {
 
 	std::vector<Attrib> Geometry::vertexAttribs() const
 	{
-		auto attrs = _geo.vertexAttribs();
+		const auto& attrs = _geo.vertexAttribs();
 
 		std::vector<Attrib> arr;
 		GA_AttributeDict::iterator it = attrs.begin(GA_SCOPE_PUBLIC);
@@ -240,7 +240,7 @@ namespace hio {
 
 	std::vector<Attrib> Geometry::globalAttribs() const
 	{
-		auto attrs = _geo.attribs();
+		const auto& attrs = _geo.attribs();
 
 		std::vector<Attrib> arr;
 		GA_AttributeDict::iterator it = attrs.begin(GA_SCOPE_PUBLIC);
@@ -272,8 +272,28 @@ namespace hio {
 	{
 		return _geo.findGlobalAttribute(GA_SCOPE_PUBLIC, UT_StringRef(name.c_str()));
 	}
-	
+    
 	///
+
+    void Geometry::filterPrimitiveByType(std::vector<PrimitiveTypes> prim_types)
+	{
+	    const auto& prims = this->prims();
+	    
+	    auto group = _geo.createDetachedPrimitiveGroup();
+
+	    for (const auto& prim : prims)
+	    {
+            auto it = std::find_if(prim_types.begin(), prim_types.end(), [&](PrimitiveTypes p)
+                { return prim.getTypeID() == (int)p; });
+	        
+	        if (it != prim_types.end())
+	        {
+	            group->add(prim.prim());
+	        }
+	    }
+
+	    _geo.destroyPrimitives(GA_Range(*group, true), true);
+	}
 
 	bool Geometry::load(const std::string& path)
 	{

@@ -115,26 +115,27 @@ class SCENE_OT_SaveGeo(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
 ###
 
 def update_geometry(o):
-    try:
-        o.filepath = o.filepath_template.format(name=o.name, frame=o.frame)
-    except:
-        print("Invalid filepath format:", o)
+    if o.load_sequence:
+        try:
+            path = o.filepath_template.format(name=o.name, frame=o.frame)
+        except:
+            print("Invalid filepath format:", o)
+            return {"CANCELLED"}
+    else:
+        path = o.filepath
 
-    ob = o.id_data
+    path = bpy.path.abspath(path)
 
     bpy.ops.object.mode_set(mode="OBJECT")
-
-    path = o.filepath
-    path = bpy.path.abspath(path)
 
     if not os.path.exists(path):
         print("File not found:", path)
         return {"CANCELLED"}
 
+    ob = o.id_data
     opts = {}
 
     new_data = importer.import_(path, ob, opts)

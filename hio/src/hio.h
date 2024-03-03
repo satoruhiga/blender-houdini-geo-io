@@ -87,10 +87,11 @@ namespace hio {
 	};
 
 	enum class PrimitiveTypes {
-		None = 0,
-		Poly = 1 << 1,
-		NURBSCurve = 1 << 2,
-		BezierCurve = 1 << 3,
+		None = GEO_PRIMNONE,
+		Poly = GEO_PRIMPOLY,
+		NURBSCurve = GEO_PRIMNURBCURVE,
+		BezierCurve = GEO_PRIMBEZCURVE,
+	    Mesh = GEO_PRIMMESH,
 	};
 
 	struct GA_PrimitiveTypeId_tag {};
@@ -522,6 +523,11 @@ namespace hio {
 
 		bool valid() const { return _prim != nullptr; }
 
+	    GA_PrimitiveTypeId getTypeID() const
+		{
+		    return _prim->getTypeId();
+		}
+
 	protected:
 
 		GEO_Primitive* _prim;
@@ -676,7 +682,7 @@ namespace hio {
 		std::vector<Attrib> primAttribs() const;
 		std::vector<Attrib> vertexAttribs() const;
 		std::vector<Attrib> globalAttribs() const;
-
+	    
 		template <typename T>
 		Attrib_<T> addAttrib(AttribType type, const std::string& name, const std::vector<T>& default_value, TypeInfo typeinfo);
 
@@ -693,6 +699,8 @@ namespace hio {
 
 		///
 
+	    void filterPrimitiveByType(std::vector<PrimitiveTypes> prim_types);
+	    
 		bool load(const std::string& path);
 		bool save(const std::string& path);
 

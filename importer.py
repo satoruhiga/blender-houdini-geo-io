@@ -21,7 +21,6 @@ def import_mesh(geo: hio.Geometry, name: str):
     me.vertices.foreach_set("co", geo.points().flatten())
 
     vertex_indices = pdata["vertices"]
-    vertices_lut = pdata["vertices_lut"]
 
     loop_start = pdata["vertex_start_index"]
     loop_total = pdata["vertex_count"]
@@ -34,7 +33,7 @@ def import_mesh(geo: hio.Geometry, name: str):
     me.polygons.add(len(loop_start))
     me.polygons.foreach_set("loop_start", loop_start)
     me.polygons.foreach_set("loop_total", loop_total)
-
+    
     ###
 
     # Vertex attributes
@@ -65,7 +64,6 @@ def import_mesh(geo: hio.Geometry, name: str):
 
         if attr.name() == "uv":
             data = attr.attribValue()
-            # data = np.take(data, vertices_lut, axis=0)
             data = data[:, :2]
             data = data.flatten()
 
@@ -122,9 +120,7 @@ def import_mesh(geo: hio.Geometry, name: str):
         # Point normals
         if attr.name() == "N":
             me.create_normals_split()
-
             me.validate(clean_customdata=False)
-
             me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
 
             data = attr.attribValue()
@@ -305,8 +301,6 @@ def import_(path: str, ob, opts):
     geo = hio.Geometry()
     if not geo.load(path):
         return None
-
-    # geo.reverse()
 
     if ob.type == "MESH":
         data = import_mesh(geo, temp_name)
