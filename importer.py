@@ -21,9 +21,9 @@ def import_mesh(geo: hio.Geometry, name: str):
     me.vertices.foreach_set("co", geo.points().flatten())
 
     vertex_indices = pdata["vertices"]
-
     loop_start = pdata["vertex_start_index"]
     loop_total = pdata["vertex_count"]
+    closed = pdata["closed"]
 
     ###
 
@@ -58,7 +58,10 @@ def import_mesh(geo: hio.Geometry, name: str):
             data *= -1
 
             data = tuple(zip(*(iter(data),) * 3))
+
+            # TODO: This function is slow, need to look for other way
             me.normals_split_custom_set(data)
+
             me.use_auto_smooth = True
             continue
 
@@ -218,10 +221,10 @@ def import_curve(geo: hio.Geometry, name: str):
     cu.dimensions = "3D"
     cu.fill_mode = "FULL"
 
-    points = geo.getPoints()
+    target_type = [hio.PrimitiveTypes.NURBSCurve, hio.PrimitiveTypes.BezierCurve]
+    pdata = geo._dataByType(target_type)
 
-    target_type = [hio.PrimType.NURBS, hio.PrimType.Bezier]
-    pdata = geo.getPrimitivesByType(target_type)
+    points = geo.points()
 
     vertex_indices = pdata["vertices"]
     prim_types = pdata["type"]
@@ -230,11 +233,11 @@ def import_curve(geo: hio.Geometry, name: str):
     closed = pdata["closed"]
 
     for i, prim_type in enumerate(prim_types):
-        t = hio.PrimType(prim_type)
+        t = hio.PrimitiveTypes(prim_type)
 
-        if t == hio.PrimType.NURBS:
+        if t == hio.PrimitiveTypes.NURBSCurve:
             sp = cu.splines.new("NURBS")
-
+            
             N = vertex_count[i]
             sp.points.add(N - 1)
 
@@ -247,10 +250,10 @@ def import_curve(geo: hio.Geometry, name: str):
 
             sp.points.foreach_set("co", pos)
             sp.use_cyclic_u = closed[i]
-            sp.use_endpoint_u = True
+            sp.use_endpoint_u = not closed[i]
             sp.order_u = 4
 
-        elif t == hio.PrimType.Bezier:
+        elif t == hio.PrimitiveTypes.BezierCurve:
             sp = cu.splines.new("BEZIER")
 
             N = int((vertex_count[i] + 2) / 3)
@@ -307,8 +310,8 @@ def import_(path: str, ob, opts):
         for x in ob.data.materials:
             data.materials.append(x)
 
-    # elif ob.type == 'CURVE':
-    # 	data = import_curve(geo, temp_name)
+    elif ob.type == 'CURVE':
+        data = import_curve(geo, temp_name)
 
     if hasattr(data, "transform"):
         global_matrix = (

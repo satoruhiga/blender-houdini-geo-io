@@ -335,8 +335,8 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 		.def("load", &Geometry::load)
 		.def("save", &Geometry::save)
 
-		.def("_dataByType", [](Geometry& self, std::vector<PrimitiveTypes> types) {
-            self.filterPrimitiveByType(types);
+		.def("_dataByType", [](Geometry& self, std::vector<PrimitiveTypes> filter_prim_types) {
+            self.filterPrimitiveByType(filter_prim_types);
 		    
 			auto dict = py::dict();
 
@@ -345,10 +345,14 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 			std::vector<Index> vertices;
 			std::vector<Index> vertex_start_index;
 			std::vector<Size> vertex_count;
+		    std::vector<int> closed;
+		    std::vector<int> types;
 
 			vertices.reserve(self.getNumVertices());
 			vertex_start_index.reserve(self.getNumPrimitives());
 			vertex_count.reserve(self.getNumPrimitives());
+		    closed.reserve(self.getNumPrimitives());
+		    types.reserve(self.getNumPrimitives());
 		    
 			for (auto prim : prims)
 			{
@@ -357,16 +361,34 @@ PYBIND11_MODULE(CMAKE_PYMODULE_NAME, m) {
 				vertex_start_index.emplace_back(prim.vertexStartIndex());
 				vertex_count.emplace_back(prim.vertexCount());
 
+			    types.emplace_back((int)prim.getTypeID().get());
+
 				if (prim.prim()->getTypeDef().getId() == Polygon::prim_typeid)
 				{
-				    _prims.append(Polygon(prim));
+				    Polygon p(prim);
+				    closed.emplace_back(p.isClosed());
+				    _prims.append(prim);
 				}
+			    else if (prim.prim()->getTypeDef().getId() == BezierCurve::prim_typeid)
+			    {
+			        BezierCurve p(prim);
+                    closed.emplace_back(p.isClosed());
+                    _prims.append(prim);
+			    }
+			    else if (prim.prim()->getTypeDef().getId() == NURBSCurve::prim_typeid)
+			    {
+			        NURBSCurve p(prim);
+                    closed.emplace_back(p.isClosed());
+                    _prims.append(prim);
+                }
 			}
 
 			dict["prims"] = _prims;
 			dict["vertices"] = py::array_t<Index>(vertices.size(), vertices.data());
 			dict["vertex_start_index"] = py::array_t<Index>(vertex_start_index.size(), vertex_start_index.data());
 			dict["vertex_count"] = py::array_t<Size>(vertex_count.size(), vertex_count.data());
+		    dict["closed"] = py::array_t<int>(closed.size(), closed.data());
+		    dict["type"] = py::array_t<int>(types.size(), types.data());
 
 		    return dict;
 		})
