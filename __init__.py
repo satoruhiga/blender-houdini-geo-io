@@ -64,8 +64,8 @@ class SCENE_OT_LoadGeo(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="OBJECT")
 
         path = bpy.path.abspath(path)
-        opts = {}
-
+        opts = {'skip_normals': o.skip_normals and o.load_sequence}
+        
         new_data = importer.import_(path, ob, opts)
 
         if not new_data:
@@ -136,7 +136,7 @@ def update_geometry(o):
         return {"CANCELLED"}
 
     ob = o.id_data
-    opts = {}
+    opts = {'skip_normals': o.skip_normals and o.load_sequence}
 
     new_data = importer.import_(path, ob, opts)
 
@@ -208,6 +208,9 @@ class SCENE_PT_HoudiniIO(Panel):
                 text="Path Template {frame}",
             )
             layout.prop(bpy.context.object.houdini_io, "frame", text="Frame")
+
+            layout.prop(bpy.context.object.houdini_io, "skip_normals", text="Skip Normals (Playback Faster)")
+
         else:
             layout.prop(bpy.context.object.houdini_io, "filepath", text="File")
 
@@ -229,6 +232,7 @@ class ObjectHoudiniIO(PropertyGroup):
     filepath: StringProperty(
         name="File Path", subtype="FILE_PATH", default="//geo.bgeo.sc"
     )
+    skip_normals: BoolProperty(name="Skip Normals", default=True)
 
 
 classes = (

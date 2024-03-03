@@ -12,7 +12,7 @@ from bpy_extras.io_utils import axis_conversion
 from bpy_extras.io_utils import unpack_list
 
 
-def import_mesh(geo: hio.Geometry, name: str):
+def import_mesh(geo: hio.Geometry, name: str, opts: dict):
     me = bpy.data.meshes.new(name)
 
     pdata = geo._dataByType([hio.PrimitiveTypes.Poly])
@@ -36,6 +36,8 @@ def import_mesh(geo: hio.Geometry, name: str):
     
     ###
 
+    skip_normals = opts['skip_normals']
+
     # Vertex attributes
     for attr in geo.vertexAttribs():
         # print('vertex', attr.name(), attr.typeInfo())
@@ -47,6 +49,9 @@ def import_mesh(geo: hio.Geometry, name: str):
 
         # Vertex normals
         if attr.name() == "N":
+            if skip_normals:
+                continue
+
             me.create_normals_split()
 
             me.validate(clean_customdata=False)
@@ -122,6 +127,9 @@ def import_mesh(geo: hio.Geometry, name: str):
         
         # Point normals
         if attr.name() == "N":
+            if skip_normals:
+                continue
+
             me.create_normals_split()
             me.validate(clean_customdata=False)
             me.polygons.foreach_set("use_smooth", np.ones(len(me.polygons), dtype=np.bool))
@@ -216,7 +224,7 @@ def import_mesh(geo: hio.Geometry, name: str):
     return me
 
 
-def import_curve(geo: hio.Geometry, name: str):
+def import_curve(geo: hio.Geometry, name: str, opts: dict):
     cu = bpy.data.curves.new(name, type="CURVE")
     cu.dimensions = "3D"
     cu.fill_mode = "FULL"
@@ -306,12 +314,12 @@ def import_(path: str, ob, opts):
         return None
 
     if ob.type == "MESH":
-        data = import_mesh(geo, temp_name)
+        data = import_mesh(geo, temp_name, opts)
         for x in ob.data.materials:
             data.materials.append(x)
 
     elif ob.type == 'CURVE':
-        data = import_curve(geo, temp_name)
+        data = import_curve(geo, temp_name, opts)
 
     if hasattr(data, "transform"):
         global_matrix = (
