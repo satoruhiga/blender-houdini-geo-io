@@ -56,37 +56,7 @@ class SCENE_OT_LoadGeo(bpy.types.Operator):
         ob = bpy.context.object
 
         o = bpy.context.object.houdini_io
-        path = o.filepath.format(name=ob.name)
-
-        if not path:
-            return {"CANCELLED"}
-
-        bpy.ops.object.mode_set(mode="OBJECT")
-
-        path = bpy.path.abspath(path)
-        opts = {'skip_normals': o.skip_normals and o.load_sequence}
-        
-        new_data = importer.import_(path, ob, opts)
-
-        if not new_data:
-            return {"CANCELLED"}
-
-        name = ob.data.name
-
-        old_data = ob.data
-        old_data.name = "_temp_" + name
-
-        new_data.name = name
-        ob.data = new_data
-
-        # remove old data
-        db = eval(repr(old_data).split("[")[0])
-        db.remove(old_data)
-
-        ob.update_from_editmode()
-
-        return {"FINISHED"}
-
+        return update_geometry(o)
 
 class SCENE_OT_SaveGeo(bpy.types.Operator):
     bl_idname = "houdini_io.save_geo"
@@ -149,6 +119,12 @@ def update_geometry(o):
     old_data.name = "_temp_" + name
 
     new_data.name = name
+
+    # copy materials to new data
+    m = list(ob.data.materials)
+    for x in m:
+        new_data.materials.append(x)
+
     ob.data = new_data
 
     # remove old data
@@ -156,6 +132,8 @@ def update_geometry(o):
     db.remove(old_data)
 
     ob.update_from_editmode()
+
+    return {"FINISHED"}
 
 def frame_number_changed_cb(self, context):
     update_geometry(self)
